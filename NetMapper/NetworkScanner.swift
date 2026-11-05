@@ -53,6 +53,23 @@ struct NetworkInterface {
         }
         return found.first { $0.name.hasPrefix("en") } ?? found.first
     }
+
+    /// This Mac's hardware address for the interface (from its AF_LINK entry).
+    var macAddress: String? {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0 else { return nil }
+        defer { freeifaddrs(head) }
+        var ptr = head
+        while let p = ptr {
+            let ifa = p.pointee
+            ptr = ifa.ifa_next
+            guard let addr = ifa.ifa_addr, addr.pointee.sa_family == sa_family_t(AF_LINK),
+                  String(cString: ifa.ifa_name) == name else { continue }
+            let bytes = UnsafeRawPointer(addr).assumingMemoryBound(to: UInt8.self)
+            return SystemInfo.macFromSockaddrDL(bytes, limit: Int(addr.pointee.sa_len))
+        }
+        return nil
+    }
 }
 
 // MARK: - Host model
@@ -161,9 +178,63 @@ enum SystemInfo {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Reads the MAC out of a raw sockaddr_dl:
+    /// len(1) family(1) index(2) type(1) nlen(1) alen(1) slen(1) data[...] where MAC = data[nlen..<nlen+alen].
+    static func macFromSockaddrDL(_ p: UnsafePointer<UInt8>, limit: Int) -> String? {
+        guard limit >= 8, p[1] == UInt8(AF_LINK) else { return nil }
+        let nlen = Int(p[5]), alen = Int(p[6])
+        guard alen == 6, 8 + nlen + 6 <= limit else { return nil }
+        let mac = (0..<6).map { String(format: "%02x", p[8 + nlen + $0]) }.joined(separator: ":")
+        guard mac != "00:00:00:00:00:00", mac != "ff:ff:ff:ff:ff:ff", !mac.hasPrefix("01:00:5e") else { return nil }
+        return mac
+    }
+
     /// IP -> MAC from the kernel ARP cache. Probing populates this, so it also
     /// catches devices that ignore every port (firewalled phones, IoT, etc.).
+    /// Reads the routing table directly via sysctl; falls back to /usr/sbin/arp.
     static func arpTable() -> [UInt32: String] {
+        if let table = arpTableSysctl(), !table.isEmpty { return table }
+        return arpTableCommand()
+    }
+
+    static func arpTableSysctl() -> [UInt32: String]? {
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO]
+        var len = 0
+        guard sysctl(&mib, u_int(mib.count), nil, &len, nil, 0) == 0 else { return nil }
+        guard len > 0 else { return [:] }
+        len += len / 4 // slack in case the table grows between calls
+        var buf = [UInt8](repeating: 0, count: len)
+        guard sysctl(&mib, u_int(mib.count), &buf, &len, nil, 0) == 0 else { return nil }
+
+        var result: [UInt32: String] = [:]
+        let headerSize = MemoryLayout<rt_msghdr>.size
+        buf.withUnsafeBufferPointer { bp in
+            guard let base = bp.baseAddress else { return }
+            var off = 0
+            while off + headerSize <= len {
+                let msgLen = Int(UnsafeRawPointer(base + off).loadUnaligned(as: rt_msghdr.self).rtm_msglen)
+                guard msgLen > 0, off + msgLen <= len else { break }
+                let end = off + msgLen
+
+                // First sockaddr after the header is the IPv4 destination (sockaddr_in).
+                let sinOff = off + headerSize
+                if sinOff + MemoryLayout<sockaddr_in>.size <= end {
+                    let sin = UnsafeRawPointer(base + sinOff).loadUnaligned(as: sockaddr_in.self)
+                    // sockaddrs are padded to 4-byte boundaries in routing messages.
+                    let sinLen = sin.sin_len == 0 ? 4 : (Int(sin.sin_len) + 3) & ~3
+                    let sdlOff = sinOff + sinLen
+                    if sin.sin_family == sa_family_t(AF_INET), sdlOff < end,
+                       let mac = macFromSockaddrDL(base + sdlOff, limit: end - sdlOff) {
+                        result[UInt32(bigEndian: sin.sin_addr.s_addr)] = mac
+                    }
+                }
+                off = end
+            }
+        }
+        return result
+    }
+
+    static func arpTableCommand() -> [UInt32: String] {
         var result: [UInt32: String] = [:]
         // Line format: ? (192.168.1.1) at a4:2b:b0:1:2:3 on en0 ifscope [ethernet]
         for line in run("/usr/sbin/arp", ["-an"]).split(separator: "\n") {
@@ -258,6 +329,7 @@ final class ScannerModel: ObservableObject {
         upsert(iface.address)
         if let i = hosts.firstIndex(where: { $0.isThisMac }) {
             hosts[i].hostname = ProcessInfo.processInfo.hostName
+            hosts[i].mac = iface.macAddress
         }
 
         let targets = Array(first...last).filter { $0 != iface.address }
@@ -298,7 +370,9 @@ final class ScannerModel: ObservableObject {
 
         progress = 1
         let summary = "Found \(hosts.count) device\(hosts.count == 1 ? "" : "s") on \(iface.cidr)"
-        status = Task.isCancelled ? "Stopped. " + summary : summary
+        let macsFound = hosts.contains { !$0.isThisMac && $0.mac != nil }
+        let note = macsFound ? "" : " — couldn't read the ARP table, so MAC addresses are unavailable"
+        status = (Task.isCancelled ? "Stopped. " : "") + summary + note
     }
 
     private func mergeARP(_ range: ClosedRange<UInt32>) async {
