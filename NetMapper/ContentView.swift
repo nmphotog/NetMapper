@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var model = ScannerModel()
@@ -28,6 +29,14 @@ struct ContentView: View {
                 .frame(width: 140)
             }
             ToolbarItem(placement: .primaryAction) {
+                Button { exportCSV() } label: {
+                    Label("Export CSV", systemImage: "square.and.arrow.up")
+                }
+                .keyboardShortcut("e")
+                .disabled(model.hosts.isEmpty || model.isScanning)
+                .help("Export the device list as CSV (⌘E)")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button { model.toggle() } label: {
                     Label(model.isScanning ? "Stop" : "Scan",
                           systemImage: model.isScanning ? "stop.fill" : "arrow.clockwise")
@@ -37,6 +46,21 @@ struct ContentView: View {
             }
         }
         .task { model.start() }
+    }
+
+    private func exportCSV() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.canCreateDirectories = true
+        let stamp = Date().formatted(.iso8601.year().month().day().dateSeparator(.dash))
+        panel.nameFieldStringValue = "NetMapper \(stamp).csv"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try CSVExporter.csv(for: model.hosts).write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.runModal()
+        }
     }
 
     private var header: some View {

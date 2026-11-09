@@ -10,6 +10,7 @@
 		AA0000000000000000000B01 /* NetMapperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000F01 /* NetMapperApp.swift */; };
 		AA0000000000000000000B02 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000F02 /* ContentView.swift */; };
 		AA0000000000000000000B03 /* NetworkScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000F03 /* NetworkScanner.swift */; };
+		AA0000000000000000000B04 /* CSVExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000F04 /* CSVExporter.swift */; };
 		AA0000000000000000000B05 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000F05 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -17,6 +18,7 @@
 		AA0000000000000000000F01 /* NetMapperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetMapperApp.swift; sourceTree = "<group>"; };
 		AA0000000000000000000F02 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000F03 /* NetworkScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkScanner.swift; sourceTree = "<group>"; };
+		AA0000000000000000000F04 /* CSVExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVExporter.swift; sourceTree = "<group>"; };
 		AA0000000000000000000F05 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0000000000000000000F06 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000F07 /* NetMapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NetMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -47,6 +49,7 @@
 				AA0000000000000000000F01 /* NetMapperApp.swift */,
 				AA0000000000000000000F02 /* ContentView.swift */,
 				AA0000000000000000000F03 /* NetworkScanner.swift */,
+				AA0000000000000000000F04 /* CSVExporter.swift */,
 				AA0000000000000000000F05 /* Assets.xcassets */,
 				AA0000000000000000000F06 /* Info.plist */,
 			);
@@ -133,6 +136,7 @@
 				AA0000000000000000000B01 /* NetMapperApp.swift in Sources */,
 				AA0000000000000000000B02 /* ContentView.swift in Sources */,
 				AA0000000000000000000B03 /* NetworkScanner.swift in Sources */,
+				AA0000000000000000000B04 /* CSVExporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

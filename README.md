@@ -18,3 +18,4 @@ Product → Archive → Distribute App → Copy App. Or from Terminal:
 - Reads the ARP cache to catch firewalled devices and get MAC addresses.
 - Reverse-DNS for names. Subnets larger than /22 are limited to your /24.
 - App Sandbox is off so it can read the ARP table.
+- Export the device list to CSV with the toolbar button or ⌘E.
